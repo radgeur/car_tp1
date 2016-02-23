@@ -11,6 +11,7 @@ import java.util.Set;
 
 public class FtpRequest implements Runnable{
 	
+	//ATTRIBUTS
 	private final static String USER = "toto";
 	private final static String PASSWORD = "toto";
 	
@@ -21,6 +22,13 @@ public class FtpRequest implements Runnable{
 	private boolean isUserValid;
 	private boolean isConnected;
 	
+	
+	//METHODS
+	/** Constructor
+	 * @param s the socket to connect
+	 * @param repo the repository that user could access
+	 * @throws IOException
+	 */
 	public FtpRequest(Socket s, String repo) throws IOException{
 		this.s=s;
 		print = new PrintStream(this.s.getOutputStream());
@@ -30,14 +38,25 @@ public class FtpRequest implements Runnable{
 		isConnected = false;
 	}
 
+	/** send a message to the server
+	 * @param string message to send at the server
+	 */
 	public void write(String string) {
 		print.println(string);
 	}
 	
+	/** receiver a message from the server
+	 * @return message send by the server
+	 * @throws IOException
+	 */
 	public String receive() throws IOException {
 		return br.readLine();
 	}
 	
+	/** match string to know which method to execute
+	 * @param string to match
+	 * @throws IOException
+	 */
 	public void ProcessRequest(String string) throws IOException{
 		String[] tab = string.split(" ");
 		switch(tab[0].toLowerCase()) {
@@ -45,7 +64,7 @@ public class FtpRequest implements Runnable{
 				processUSER(tab[1]);
 				break;
 			case "pass":
-				processPASS();
+				processPASS(tab[1]);
 				break;
 			case "retr":
 				if(userIsConnected())
@@ -68,12 +87,18 @@ public class FtpRequest implements Runnable{
 		}
 	}
 	
+	/** return if the user is connected or not
+	 * @return true if the user is connected else false
+	 */
 	public boolean userIsConnected(){
 		if(!isConnected)
 			write("Vous nêtes pas encore connecté pour pouvoir effectuer cette action");
 		return isConnected;
 	}
 	
+	/** process who the user enter his user name
+	 * @param string the user name
+	 */
 	public void processUSER(String string) {
 		if(string.equals(USER)){
 			isUserValid = true;
@@ -82,15 +107,15 @@ public class FtpRequest implements Runnable{
 			write("Nom d'utilisateur non valide");
 	}
 	
-	public void processPASS() {
+	/** process who the user enter his password
+	 * @param string the user's password
+	 */
+	public void processPASS(String string) {
 		if(!isUserValid){
 			write("Vous n'avez pas encore saisi votre nom d'utilisateur ou il n'est pas valide");
 			return;
 		}
-		String string = null;
-		try {
-			string = receive();
-		} catch (IOException e1) {}
+		
 		if(string.equals(PASSWORD)){
 			isConnected = true;
 			write("Mot de Passe correct");
@@ -98,14 +123,17 @@ public class FtpRequest implements Runnable{
 			write("Mot de Passe incorrect");
 	}
 	
+	/** move a file one the computer */
 	public void processRETR() {
 		
 	}
 	
+	/** move a file on the server */
 	public void processSTOR() {
 		
 	}
 	
+	/** display the list of the files who the user is actually */
 	public void processLIST() {
 		Set<File> files = new HashSet<File>(Arrays.asList(currentRepository.listFiles()));
 		for (File f : files) {
@@ -113,13 +141,14 @@ public class FtpRequest implements Runnable{
 		}
 	}
 	
+	/** process to disconnect from the server */
 	public void processQUIT() throws IOException {
 		s.close();
 	}
 	
 	@Override
 	public void run() {
-		this.write("200 Service OK, veuillez vous identifiez");
+		this.write("Service OK, veuillez vous identifiez");
 		String string = null;
 		try {
 			string = receive();
