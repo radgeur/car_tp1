@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
 import java.util.Arrays;
@@ -16,7 +17,8 @@ public class FtpRequest implements Runnable{
 	private final static String PASSWORD = "toto";
 	
 	private Socket s;
-	private PrintStream print;
+	//private PrintStream print;
+	private OutputStream out;
 	private BufferedReader br;
 	private File currentRepository;
 	private boolean isUserValid;
@@ -31,7 +33,8 @@ public class FtpRequest implements Runnable{
 	 */
 	public FtpRequest(Socket s, String repo) throws IOException{
 		this.s=s;
-		print = new PrintStream(this.s.getOutputStream());
+		//print = new PrintStream(this.s.getOutputStream());
+		out = s.getOutputStream();
 		this.br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 		currentRepository = new File(repo);
 		isUserValid = false;
@@ -40,9 +43,13 @@ public class FtpRequest implements Runnable{
 
 	/** send a message to the server
 	 * @param string message to send at the server
+	 * @throws IOException 
 	 */
-	public void write(String string) {
-		print.println(string);
+	public void write(String string) throws IOException {
+		//print.println(string);
+		string += "\n";
+		out.write(string.getBytes());
+		out.flush();
 	}
 	
 	/** receiver a message from the server
@@ -58,6 +65,7 @@ public class FtpRequest implements Runnable{
 	 * @throws IOException
 	 */
 	public void ProcessRequest(String string) throws IOException{
+		System.out.println(string);
 		String[] tab = string.split(" ");
 		switch(tab[0].toLowerCase()) {
 			case "user":
@@ -74,7 +82,7 @@ public class FtpRequest implements Runnable{
 				if(userIsConnected())
 					processSTOR();
 				break;
-			case "list":
+			case "ls":
 				if(userIsConnected())
 					processLIST();
 				break;
@@ -89,8 +97,9 @@ public class FtpRequest implements Runnable{
 	
 	/** return if the user is connected or not
 	 * @return true if the user is connected else false
+	 * @throws IOException 
 	 */
-	public boolean userIsConnected(){
+	public boolean userIsConnected() throws IOException{
 		if(!isConnected)
 			write("Vous nêtes pas encore connecté pour pouvoir effectuer cette action");
 		return isConnected;
@@ -98,29 +107,31 @@ public class FtpRequest implements Runnable{
 	
 	/** process who the user enter his user name
 	 * @param string the user name
+	 * @throws IOException 
 	 */
-	public void processUSER(String string) {
+	public void processUSER(String string) throws IOException {
 		if(string.equals(USER)){
 			isUserValid = true;
-			write("Nom d'utilisateur valide");
+			write("331 Nom d'utilisateur valide, en attente du mot de passe");
 		} else 
-			write("Nom d'utilisateur non valide");
+			write("430 Nom d'utilisateur non valide");
 	}
 	
 	/** process who the user enter his password
 	 * @param string the user's password
+	 * @throws IOException 
 	 */
-	public void processPASS(String string) {
+	public void processPASS(String string) throws IOException {
 		if(!isUserValid){
-			write("Vous n'avez pas encore saisi votre nom d'utilisateur ou il n'est pas valide");
+			write("430 Vous n'avez pas encore saisi votre nom d'utilisateur ou il n'est pas valide");
 			return;
 		}
 		
 		if(string.equals(PASSWORD)){
 			isConnected = true;
-			write("Mot de Passe correct");
+			write("230 Mot de Passe correct");
 		} else 
-			write("Mot de Passe incorrect");
+			write("430 Mot de Passe incorrect");
 	}
 	
 	/** move a file one the computer */
@@ -133,8 +144,9 @@ public class FtpRequest implements Runnable{
 		
 	}
 	
-	/** display the list of the files who the user is actually */
-	public void processLIST() {
+	/** display the list of the files who the user is actually 
+	 * @throws IOException */
+	public void processLIST() throws IOException {
 		Set<File> files = new HashSet<File>(Arrays.asList(currentRepository.listFiles()));
 		for (File f : files) {
 			write(f.toString());
@@ -148,7 +160,12 @@ public class FtpRequest implements Runnable{
 	
 	@Override
 	public void run() {
-		this.write("Service OK, veuillez vous identifiez");
+		try {
+			this.write("200 Veuillez vous identifiez");
+		} catch (IOException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
 		String string = null;
 		try {
 			string = receive();
