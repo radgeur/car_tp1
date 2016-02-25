@@ -17,12 +17,15 @@ public class FtpRequest implements Runnable{
 	private final static String PASSWORD = "toto";
 	
 	private Socket s;
+	private static Socket versFTP;
 	//private PrintStream print;
 	private OutputStream out;
+	private OutputStream ftp;
 	private BufferedReader br;
 	private File currentRepository;
 	private boolean isUserValid;
 	private boolean isConnected;
+	private int commPort;
 	
 	
 	//METHODS
@@ -46,8 +49,6 @@ public class FtpRequest implements Runnable{
 	 * @throws IOException 
 	 */
 	public void write(String string) throws IOException {
-		//print.println(string);
-		string += "\n";
 		out.write(string.getBytes());
 		out.flush();
 	}
@@ -82,12 +83,25 @@ public class FtpRequest implements Runnable{
 				if(userIsConnected())
 					processSTOR();
 				break;
-			case "ls":
+			case "list":
 				if(userIsConnected())
 					processLIST();
 				break;
 			case "quit":
 				processQUIT();
+				break;
+			case "port":
+				System.out.println("je dois me connecter à " + tab[1]);
+				String[] addr = tab[1].split(",");
+				commPort = (Integer.parseInt(addr[4]) * 256) + Integer.parseInt(addr[5]);
+				versFTP = new Socket(addr[0] + "." + addr[1] + "." + addr[2] + "." + addr[3], commPort);
+				ftp = versFTP.getOutputStream();
+				write("200 connexion établie");
+				write("\r\n");
+				break;
+			case "syst":
+				write("215 ");
+				write("\r\n");
 				break;
 			default:
 				write("Commande invalide");
@@ -113,6 +127,7 @@ public class FtpRequest implements Runnable{
 		if(string.equals(USER)){
 			isUserValid = true;
 			write("331 Nom d'utilisateur valide, en attente du mot de passe");
+			write("\r\n");
 		} else 
 			write("430 Nom d'utilisateur non valide");
 	}
@@ -129,7 +144,8 @@ public class FtpRequest implements Runnable{
 		
 		if(string.equals(PASSWORD)){
 			isConnected = true;
-			write("230 Mot de Passe correct");
+			write("230 Authentification réussie");
+			write("\r\n");
 		} else 
 			write("430 Mot de Passe incorrect");
 	}
@@ -147,21 +163,31 @@ public class FtpRequest implements Runnable{
 	/** display the list of the files who the user is actually 
 	 * @throws IOException */
 	public void processLIST() throws IOException {
-		Set<File> files = new HashSet<File>(Arrays.asList(currentRepository.listFiles()));
-		for (File f : files) {
-			write(f.toString());
+		write("150 ");
+		write("\r\n");
+		String msg = new String();
+		for (String s : currentRepository.list()){
+			msg += s + "\n";
 		}
+		System.out.println(msg);
+		ftp.write(msg.getBytes());
+		versFTP.close();
+		write("226 LIST effectué avec succès");
+		write("\r\n");
 	}
 	
 	/** process to disconnect from the server */
 	public void processQUIT() throws IOException {
 		s.close();
+		write("221 ");
+		write("\r\n");
 	}
 	
 	@Override
 	public void run() {
 		try {
-			this.write("200 Veuillez vous identifiez");
+			write("200 Veuillez vous identifiez");
+			write("\r\n");
 		} catch (IOException e2) {
 			// TODO Auto-generated catch block
 			e2.printStackTrace();
@@ -170,7 +196,7 @@ public class FtpRequest implements Runnable{
 		try {
 			string = receive();
 		} catch (IOException e1) {}
-		while(string != "quit") {
+		while(string != "QUIT") {
 			try {
 				ProcessRequest(string);
 			} catch (IOException e) {}

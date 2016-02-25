@@ -18,7 +18,7 @@ public class Serveur {
 	public void attendreCx() throws IOException{
 		while(true){
 			Socket s=port.accept();
-			Thread t = new Thread(new FtpRequest(s, "./FTP/toto"));
+			Thread t = new Thread(new FtpRequest(s, "./FTP"));
 			t.start();
 		}
 	}
